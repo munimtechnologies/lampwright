@@ -1,0 +1,61 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "lampwright",
+  "post": {
+    "entrypoints": {
+      "default": {"entry": "splash.html", "height": "tall"},
+      "game": {"entry": "game.html"},
+      "build": {"entry": "build.html"}
+    }
+  },
+  "server": {},
+  "permissions": {
+    "redis": true,
+    "journeys": true,
+    "reddit": {
+      "enable": true,
+      "asUser": ["SUBMIT_POST", "SUBMIT_COMMENT", "SUBSCRIBE_TO_SUBREDDIT"]
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "[Lampwright] Post today's puzzle",
+        "description": "Create a Lampwright post for today's puzzle.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/on/menu/new-post"
+      },
+      {
+        "label": "[Lampwright] Feature this board",
+        "description": "Pin this player-made board to the top of the community (replaces the last one featured).",
+        "location": "post",
+        "postFilter": "currentApp",
+        "forUserType": "moderator",
+        "endpoint": "/internal/on/menu/feature"
+      }
+    ]
+  },
+  "triggers": {
+    "onAppInstall": "/internal/on/app/install",
+    "onPostDelete": "/internal/on/post/delete",
+    "onCommentDelete": "/internal/on/comment/delete"
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-post": {
+        "endpoint": "/internal/scheduler/daily-post",
+        "cron": "5 0 * * *"
+      },
+      "daily-post-retry-1": {
+        "endpoint": "/internal/scheduler/daily-post-retry",
+        "cron": "20 0 * * *"
+      },
+      "daily-post-retry-2": {
+        "endpoint": "/internal/scheduler/daily-post-retry",
+        "cron": "50 0 * * *"
+      }
+    }
+  },
+  "scripts": {"dev": "npm run watch"}
+}

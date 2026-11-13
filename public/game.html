@@ -1,0 +1,673 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0. Copyright 2026 Munim, Inc. Made with AI agents for MV2 of Munim, Inc. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    >
+    <title>Lampwright</title>
+    <link rel="modulepreload" href="game.js">
+    <style>
+    :root {
+      --bg: #070a1c;
+      --panel: #10163a;
+      --cellbg: #141b44;
+      --edge: #263070;
+      --text: #eef1ff;
+      --muted: #a9b1dd;
+      --beam: #7cf4ff;
+      --gold: #ffd166;
+      --wall: #333a5e;
+      --focus: #ffffff;
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      margin: 0;
+      width: 100dvw;
+      height: 100dvh;
+      overflow: hidden;
+      background: radial-gradient(
+        120% 80% at 50% 0%,
+        #182061 0%,
+        var(--bg) 60%
+      );
+      color: var(--text);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #loading {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px 14px;
+    }
+    #app[hidden],
+    [hidden] {
+      display: none !important;
+    }
+    header {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.02em;
+    }
+    #day {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    #streak {
+      color: var(--gold);
+      font-size: 13px;
+    }
+    .link {
+      display: block;
+      margin: 2px 0 0;
+      padding: 2px 0;
+      min-height: 24px;
+      border: 0;
+      background: none;
+      color: var(--beam);
+      font-size: 13px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+    }
+    .link:focus-visible,
+    .btn:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+    .meters {
+      display: flex;
+      gap: 14px;
+      font-size: 14px;
+      color: var(--muted);
+      text-align: right;
+    }
+    .meters b {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+    }
+    #wrap {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: grid;
+      place-items: center;
+    }
+    #board {
+      --cell: min(
+        calc((100dvw - 28px) / var(--w)),
+        calc((100dvh - 230px) / var(--h)),
+        64px
+      );
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(var(--w), var(--cell));
+      grid-auto-rows: var(--cell);
+      padding: 4px;
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow:
+        0 0 0 1px var(--edge),
+        0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    /* v0.9: the board and the help picture are a drawing; keep their colours in Windows high-contrast mode */
+    #board,
+    .mini {
+      forced-color-adjust: none;
+    }
+    .cell {
+      position: relative;
+      margin: 2px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--cellbg);
+      color: var(--text);
+      font-size: calc(var(--cell) * 0.38);
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    /* v0.9: white, not gold, so focus never looks like a lit crystal */
+    .cell:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 0;
+      z-index: 1;
+    }
+    .cell.on-path {
+      background: #1b2a66;
+    }
+    .cell.wall {
+      cursor: default;
+      background: repeating-linear-gradient(
+        45deg,
+        var(--wall) 0 6px,
+        #2b3152 6px 12px
+      );
+    }
+    .cell.emitter {
+      cursor: default;
+      background: radial-gradient(
+        circle,
+        #fff 0 18%,
+        var(--beam) 30%,
+        #19306b 70%
+      );
+      color: #06223a;
+    }
+    .cell.crystal {
+      cursor: default;
+    }
+    .cell.crystal::after {
+      content: '';
+      position: absolute;
+      inset: 28%;
+      transform: rotate(45deg);
+      border-radius: 3px;
+      background: linear-gradient(135deg, #b9a7ff, #5b49c9);
+      box-shadow: 0 0 6px rgba(140, 120, 255, 0.6);
+      transition:
+        background 0.2s,
+        box-shadow 0.2s;
+    }
+    /* v0.9: a lit crystal also gets a ring, so lit and dark differ in shape, not only in colour */
+    .cell.crystal.lit {
+      box-shadow: inset 0 0 0 2px var(--gold);
+    }
+    .cell.crystal.lit::after {
+      background: linear-gradient(135deg, #fff3c4, var(--gold));
+      box-shadow:
+        0 0 14px var(--gold),
+        0 0 28px rgba(255, 209, 102, 0.6);
+    }
+    .cell.m-s::before,
+    .cell.m-b::before {
+      content: '';
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: calc(50% - 3px);
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(#ffffff, #b8c4ff);
+      box-shadow: 0 0 8px rgba(190, 205, 255, 0.8);
+    }
+    .cell.m-s::before {
+      transform: rotate(-45deg);
+    }
+    .cell.m-b::before {
+      transform: rotate(45deg);
+    }
+    .cell.fixed {
+      cursor: default;
+      background: #1d2247;
+    }
+    .cell.fixed::before {
+      background: linear-gradient(#9aa3c7, #6c7499);
+      box-shadow: none;
+    }
+    .cell.nope {
+      animation: nope 0.3s;
+    }
+    @keyframes nope {
+      25% {
+        transform: translateX(-4px);
+      }
+      75% {
+        transform: translateX(4px);
+      }
+    }
+    #beam {
+      position: absolute;
+      inset: 4px;
+      width: calc(100% - 8px);
+      height: calc(100% - 8px);
+      pointer-events: none;
+      overflow: visible;
+    }
+    #beam polyline {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    #beam .glow {
+      stroke: var(--beam);
+      stroke-opacity: 0.35;
+      stroke-width: 0.32;
+    }
+    #beam .core {
+      stroke: #e9feff;
+      stroke-width: 0.08;
+    }
+    .solved #beam .glow {
+      stroke: var(--gold);
+      stroke-opacity: 0.5;
+    }
+    #status {
+      min-height: 2.6em;
+      max-width: 520px;
+      text-align: center;
+      font-size: 15px;
+      color: var(--muted);
+      margin: 0;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      min-width: 88px;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 22px;
+      border: 1px solid var(--edge);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .btn.primary {
+      border: 0;
+      background: linear-gradient(135deg, #ffe29a, var(--gold));
+      color: #2a1d00;
+      box-shadow: 0 0 18px rgba(255, 209, 102, 0.5);
+    }
+    #hint {
+      position: absolute;
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 300px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: #fff6d6;
+      color: #2a1d00;
+      font-size: 14px;
+      text-align: center;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+      z-index: 2;
+    }
+    #result {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(4, 6, 18, 0.72);
+      z-index: 3;
+      overflow-y: auto;
+    }
+    .card {
+      width: min(88vw, 360px);
+      padding: 22px 20px;
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow:
+        0 0 0 1px var(--edge),
+        0 20px 60px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      color: var(--gold);
+      font-size: 24px;
+    }
+    .card p {
+      margin: 8px 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    #r-line {
+      color: var(--text);
+    }
+    #r-yesterday {
+      font-size: 13px;
+      border-top: 1px solid var(--edge);
+      padding-top: 8px;
+    }
+    #r-dots {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin: 10px 0;
+    }
+    .dot {
+      width: 14px;
+      height: 14px;
+      transform: rotate(45deg);
+      border-radius: 3px;
+      background: #2a3266;
+      box-shadow: inset 0 0 0 1px #5a64a6;
+    }
+    .dot.found {
+      background: var(--gold);
+      box-shadow: 0 0 8px var(--gold);
+    }
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    #share {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #0b1030;
+      box-shadow: inset 0 0 0 1px var(--edge);
+      text-align: left;
+    }
+    #s-preview {
+      margin: 0 0 8px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #161d4a;
+      color: var(--text);
+      font-size: 14px;
+      white-space: pre-line;
+    }
+    #s-note {
+      font-size: 13px;
+    }
+    #s-error {
+      color: #ff9b9b;
+      font-size: 13px;
+      min-height: 0;
+    }
+    #r-shared {
+      color: var(--gold);
+    }
+    /* v0.9: was #6f78a8 (about 4.5:1 on the page); now about 6.6:1 */
+    #credit {
+      font-size: 11px;
+      color: #8a93c4;
+      margin: 0;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--edge);
+      background: var(--panel);
+      color: var(--beam);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+    #help {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(4, 6, 18, 0.72);
+      z-index: 4;
+      overflow-y: auto;
+    }
+    .mini {
+      --cell: 40px;
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, var(--cell));
+      grid-auto-rows: var(--cell);
+      width: max-content;
+      margin: 6px auto 10px;
+      padding: 4px;
+      border-radius: 10px;
+      background: #0b1030;
+    }
+    .mini svg {
+      position: absolute;
+      inset: 4px;
+      width: calc(100% - 8px);
+      height: calc(100% - 8px);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .mini polyline {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .mini .glow {
+      stroke: var(--gold);
+      stroke-opacity: 0.5;
+      stroke-width: 0.32;
+    }
+    .mini .core {
+      stroke: #e9feff;
+      stroke-width: 0.08;
+    }
+    .steps {
+      margin: 8px 0;
+      padding-left: 22px;
+      text-align: left;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .steps li {
+      margin: 6px 0;
+    }
+    .steps b {
+      color: var(--text);
+    }
+    #r-next {
+      color: var(--beam);
+      font-size: 14px;
+    }
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 4px 0 0;
+    }
+    .solved .cell.crystal.lit::after {
+      animation: shine 0.9s ease-out 1;
+    }
+    @keyframes shine {
+      40% {
+        transform: rotate(45deg) scale(1.35);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cell.nope {
+        animation: none;
+      }
+      .cell.crystal::after {
+        transition: none;
+      }
+      .solved .cell.crystal.lit::after {
+        animation: none;
+      }
+    }
+    </style>
+  </head>
+  <body>
+    <div id="loading">Lighting the lamp...</div>
+    <div id="app" hidden>
+      <header>
+        <div>
+          <div class="title-row">
+            <h1 id="title">Lampwright</h1>
+            <button
+              id="help-btn"
+              class="icon-btn"
+              type="button"
+              aria-label="How to play"
+              aria-haspopup="dialog"
+            >
+              ?
+            </button>
+          </div>
+          <div id="day"></div>
+          <div id="streak" hidden></div>
+          <button id="reveal" class="link" type="button" hidden>
+            Show par routes
+          </button>
+        </div>
+        <div class="meters">
+          <div>Crystals<b id="lit">0/0</b></div>
+          <div>Mirrors<b id="mirrors">0/0</b></div>
+          <div>Par<b id="par">0</b></div>
+        </div>
+      </header>
+      <div id="hint" hidden>
+        Steer the light through every crystal. Tap a square to place a mirror,
+        tap again to flip it.
+      </div>
+      <div id="wrap">
+        <div id="board" role="group" aria-label="Puzzle board"></div>
+      </div>
+      <p id="status" aria-live="polite"></p>
+      <div class="controls">
+        <button id="undo" class="btn" type="button">Undo</button>
+        <button id="reset" class="btn" type="button">Reset</button>
+        <button id="lock" class="btn primary" type="button" hidden>
+          Lock in
+        </button>
+      </div>
+      <p id="credit">Lampwright by MV2 of Munim, Inc., made with AI agents</p>
+    </div>
+    <div
+      id="result"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="r-head"
+      aria-describedby="r-line"
+    >
+      <div class="card">
+        <h2 id="r-head"></h2>
+        <p id="r-line"></p>
+        <p id="r-routes"></p>
+        <div id="r-dots" aria-hidden="true"></div>
+        <p id="r-crowd"></p>
+        <p id="r-streak"></p>
+        <p id="r-next" hidden></p>
+        <div id="r-join-row" hidden>
+          <button id="r-join" class="btn" type="button">
+            Join this community
+          </button>
+          <p class="note">
+            Joins from your Reddit account, so each new puzzle shows up in your
+            feed.
+          </p>
+        </div>
+        <p id="r-joined" hidden aria-live="polite"></p>
+        <p id="r-shared" hidden aria-live="polite"></p>
+        <div id="share" hidden>
+          <p id="s-preview"></p>
+          <p id="s-note"></p>
+          <p id="s-error" aria-live="polite"></p>
+          <div class="card-actions">
+            <button id="s-post" class="btn primary" type="button">
+              Post comment
+            </button>
+            <button id="s-cancel" class="btn" type="button">Cancel</button>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button id="r-share" class="btn" type="button" hidden>
+            Share result as a comment
+          </button>
+          <button id="r-again" class="btn primary" type="button">
+            Keep exploring
+          </button>
+        </div>
+        <p id="r-yesterday" hidden></p>
+      </div>
+    </div>
+    <div
+      id="help"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="help-head"
+    >
+      <div class="card">
+        <h2 id="help-head">How to play</h2>
+        <div class="mini" aria-hidden="true">
+          <span class="cell"></span><span class="cell crystal lit"></span
+          ><span class="cell"></span>
+          <span class="cell emitter">▶</span
+          ><span class="cell placed m-s"></span><span class="cell wall"></span>
+          <svg viewBox="0 0 3 2">
+            <polyline class="glow" points="0.5,1.5 1.5,1.5 1.5,0" />
+            <polyline class="core" points="0.5,1.5 1.5,1.5 1.5,0" />
+          </svg>
+        </div>
+        <ol class="steps">
+          <li>The <b>lamp</b> shines one beam of light across the board.</li>
+          <li>
+            <b>Tap</b>
+            an empty square to place a mirror. Tap again to flip it, a third
+            time to remove it.
+          </li>
+          <li>
+            Bend the beam through <b>every crystal</b>. Walls stop it, crystals
+            let it pass, grey mirrors are fixed.
+          </li>
+          <li>
+            Use as few mirrors as you can. The fewest possible is <b>par</b>;
+            you get par + 1.
+          </li>
+          <li>
+            <b>Lock in</b>
+            to save your result. Most days have several par routes: can everyone
+            here find them all?
+          </li>
+        </ol>
+        <p>A new puzzle is posted every day at 00:05 UTC.</p>
+        <p class="note">
+          Keyboard: Tab to the board, arrow keys to move, Enter or Space to
+          place or flip a mirror.
+        </p>
+        <div class="card-actions">
+          <button id="help-close" class="btn primary" type="button">
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+    <script src="game.js" type="module"></script>
+  </body>
+</html>

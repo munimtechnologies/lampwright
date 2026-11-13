@@ -1,0 +1,374 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0. Copyright 2026 Munim, Inc. Made with AI agents for MV2 of Munim, Inc. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    >
+    <title>Lampwright: build a board</title>
+    <link rel="modulepreload" href="build.js">
+    <style>
+    :root {
+      --bg: #070a1c;
+      --panel: #10163a;
+      --cellbg: #141b44;
+      --edge: #263070;
+      --text: #eef1ff;
+      --muted: #a9b1dd;
+      --beam: #7cf4ff;
+      --gold: #ffd166;
+      --wall: #333a5e;
+      --focus: #ffffff;
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background: radial-gradient(120% 80% at 50% 0%, #182061 0%, var(--bg) 60%)
+        fixed;
+      color: var(--text);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    [hidden] {
+      display: none !important;
+    }
+    #loading {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+    }
+    #app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px 24px;
+    }
+    header {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+    #sub {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    #palette {
+      width: 100%;
+      max-width: 420px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+    .tool {
+      min-height: 48px;
+      padding: 4px 2px;
+      border: 1px solid var(--edge);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 11px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      gap: 1px;
+    }
+    .tool .icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+    .tool[aria-pressed='true'] {
+      border-color: var(--gold);
+      box-shadow:
+        0 0 0 1px var(--gold),
+        0 0 12px rgba(255, 209, 102, 0.35);
+    }
+    /* v0.9b: the chosen tool is also bold and underlined, so it does not depend on colour alone */
+    .tool[aria-pressed='true'] .label {
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    /* v0.9b: white, not gold, so focus never looks like the chosen tool or a lit crystal */
+    .tool:focus-visible,
+    .btn:focus-visible,
+    .board-link:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+    .cell:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 0;
+      z-index: 1;
+    }
+    #board {
+      --cell: min(calc((100vw - 28px) / var(--w)), 52px);
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(var(--w), var(--cell));
+      grid-auto-rows: var(--cell);
+      padding: 4px;
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow:
+        0 0 0 1px var(--edge),
+        0 10px 40px rgba(0, 0, 0, 0.5);
+      /* v0.9b: in Windows high-contrast mode the board keeps its own colours (the beam is drawn in them) */
+      forced-color-adjust: none;
+    }
+    .cell {
+      position: relative;
+      margin: 2px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--cellbg);
+      color: #06223a;
+      font-size: calc(var(--cell) * 0.38);
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .cell.on-path {
+      background: #1b2763;
+    }
+    .cell.wall {
+      background: repeating-linear-gradient(
+        45deg,
+        var(--wall) 0 6px,
+        #2b3152 6px 12px
+      );
+    }
+    .cell.emitter {
+      background: radial-gradient(
+        circle,
+        #fff 0 18%,
+        var(--beam) 30%,
+        #19306b 70%
+      );
+    }
+    .cell.crystal::after {
+      content: '';
+      position: absolute;
+      inset: 28%;
+      transform: rotate(45deg);
+      border-radius: 3px;
+      background: linear-gradient(135deg, #b9a7ff, #5b49c9);
+      box-shadow: 0 0 6px rgba(140, 120, 255, 0.6);
+    }
+    /* v0.9b: as in the game, a lit crystal also gets a ring, so lit and dark differ in shape */
+    .cell.crystal.lit {
+      box-shadow: inset 0 0 0 2px var(--gold);
+    }
+    .cell.crystal.lit::after {
+      background: linear-gradient(135deg, #fff3c4, var(--gold));
+      box-shadow: 0 0 14px var(--gold);
+    }
+    .cell.m-s::before,
+    .cell.m-b::before {
+      content: '';
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: calc(50% - 3px);
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(#9aa3c7, #6c7499);
+    }
+    .cell.m-s::before {
+      transform: rotate(-45deg);
+    }
+    .cell.m-b::before {
+      transform: rotate(45deg);
+    }
+    .cell.fixed {
+      background: #1d2247;
+    }
+    #beam {
+      position: absolute;
+      inset: 4px;
+      width: calc(100% - 8px);
+      height: calc(100% - 8px);
+      pointer-events: none;
+      overflow: visible;
+    }
+    #beam polyline {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    #beam .glow {
+      stroke: var(--beam);
+      stroke-opacity: 0.35;
+      stroke-width: 0.32;
+    }
+    #beam .core {
+      stroke: #e9feff;
+      stroke-width: 0.08;
+    }
+    #counts {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    #status {
+      min-height: 2.6em;
+      max-width: 420px;
+      margin: 0;
+      text-align: center;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      min-width: 88px;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 22px;
+      border: 1px solid var(--edge);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .btn.primary {
+      border: 0;
+      background: linear-gradient(135deg, #ffe29a, var(--gold));
+      color: #2a1d00;
+      box-shadow: 0 0 18px rgba(255, 209, 102, 0.5);
+    }
+    .panel {
+      width: 100%;
+      max-width: 420px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #0b1030;
+      box-shadow: inset 0 0 0 1px var(--edge);
+      text-align: center;
+    }
+    .panel p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    #b-error {
+      color: #ff9b9b;
+      min-height: 0;
+    }
+    #b-posted-text {
+      color: var(--gold);
+      font-size: 15px;
+    }
+    #recent {
+      width: 100%;
+      max-width: 420px;
+    }
+    #recent h2 {
+      margin: 8px 0 6px;
+      font-size: 16px;
+    }
+    #boards {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .board-link {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--edge);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 14px;
+      text-align: left;
+      cursor: pointer;
+    }
+    #boards-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    /* v0.9b: was #6f78a8 (about 4.5:1 on the page); now about 6.6:1, as in the game */
+    #credit {
+      font-size: 11px;
+      color: #8a93c4;
+      margin: 4px 0 0;
+    }
+    </style>
+  </head>
+  <body>
+    <div id="loading">Opening the workshop...</div>
+    <div id="app" hidden>
+      <header>
+        <h1 id="title">Build a board</h1>
+        <p id="sub">
+          Paint a board, let the solver check it and set par, then post it if
+          you like.
+        </p>
+      </header>
+      <div
+        id="palette"
+        role="toolbar"
+        aria-label="Square to paint"
+        aria-orientation="horizontal"
+      ></div>
+      <div id="board" role="group" aria-label="Board you are building"></div>
+      <p id="counts"></p>
+      <p id="status" aria-live="polite"></p>
+      <div class="controls">
+        <button id="b-check" class="btn primary" type="button">
+          Check board
+        </button>
+        <button id="b-clear" class="btn" type="button">Clear</button>
+      </div>
+      <section id="post" class="panel" hidden aria-label="Post your board">
+        <p id="b-note"></p>
+        <p id="b-error" aria-live="polite"></p>
+        <button id="b-post" class="btn primary" type="button">
+          Post my board
+        </button>
+      </section>
+      <section
+        id="b-posted"
+        class="panel"
+        hidden
+        aria-label="Your board is posted"
+      >
+        <p id="b-posted-text" aria-live="polite"></p>
+        <button id="b-open" class="btn" type="button">Open the post</button>
+      </section>
+      <section id="recent" aria-labelledby="recent-head">
+        <h2 id="recent-head">Community boards</h2>
+        <p id="boards-empty">
+          No community boards yet. Yours could be the first.
+        </p>
+        <ul id="boards"></ul>
+      </section>
+      <p id="credit">Lampwright by MV2 of Munim, Inc., made with AI agents</p>
+    </div>
+    <script src="build.js" type="module"></script>
+  </body>
+</html>

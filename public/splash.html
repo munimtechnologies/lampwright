@@ -1,0 +1,137 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0. Copyright 2026 Munim, Inc. Made with AI agents for MV2 of Munim, Inc. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    >
+    <title>Lampwright</title>
+    <link rel="modulepreload" href="splash.js">
+    <style>
+    html,
+    body {
+      margin: 0;
+      width: 100dvw;
+      height: 100dvh;
+      overflow: hidden;
+      background: radial-gradient(120% 90% at 50% 0%, #1b2470 0%, #070a1c 65%);
+      color: #eef1ff;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    main {
+      height: 100%;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .glyph {
+      width: 64px;
+      height: 64px;
+    }
+    .glyph polyline {
+      fill: none;
+      stroke: #7cf4ff;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .glyph rect {
+      fill: #ffd166;
+    }
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0.03em;
+    }
+    #day {
+      color: #a9b1dd;
+      font-size: 14px;
+    }
+    #pitch {
+      margin: 0;
+      max-width: 320px;
+      color: #d5daf7;
+      font-size: 15px;
+    }
+    #crowd,
+    #streak {
+      margin: 0;
+      color: #ffd166;
+      font-size: 14px;
+      min-height: 1.2em;
+    }
+    #yesterday {
+      margin: 0;
+      max-width: 320px;
+      color: #a9b1dd;
+      font-size: 13px;
+    }
+    #next {
+      margin: 0;
+      color: #7cf4ff;
+      font-size: 13px;
+      min-height: 1.2em;
+    }
+    #start-btn {
+      min-width: 160px;
+      min-height: 48px;
+      margin-top: 6px;
+      border: 0;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #ffe29a, #ffd166);
+      color: #2a1d00;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 0 22px rgba(255, 209, 102, 0.5);
+    }
+    #build-btn {
+      min-height: 40px;
+      padding: 0 18px;
+      border: 1px solid #263070;
+      border-radius: 20px;
+      background: #10163a;
+      color: #eef1ff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #start-btn:focus-visible,
+    #build-btn:focus-visible {
+      outline: 2px solid #7cf4ff;
+      outline-offset: 2px;
+    }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="glyph" viewBox="0 0 64 64" aria-hidden="true">
+        <polyline points="6,52 30,52 30,14 58,14" />
+        <rect
+          x="24"
+          y="26"
+          width="12"
+          height="12"
+          transform="rotate(45 30 32)"
+        />
+      </svg>
+      <h1 id="title">Lampwright</h1>
+      <div id="day"></div>
+      <p id="pitch">
+        Bend one beam of light through every crystal. A new puzzle every day.
+      </p>
+      <p id="crowd"></p>
+      <p id="streak"></p>
+      <button id="start-btn" type="button">Play</button>
+      <button id="build-btn" type="button">Build a board</button>
+      <p id="yesterday" hidden></p>
+      <p id="next" hidden></p>
+    </main>
+    <script src="splash.js" type="module"></script>
+  </body>
+</html>
